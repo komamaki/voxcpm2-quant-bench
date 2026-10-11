@@ -1,239 +1,264 @@
-# VoxCPM2 · 8 GB 显存共存量化基准
+# VoxCPM2 · 8 GB VRAM Coexistence Quantization Benchmark
 
-> 让 **VoxCPM2 语音合成** 与 **一个 4B 级 Qwen 大模型** 在同一张 8 GB 显卡上共存，
-> 且 TTS 保持**实时**（RTF ≤ 1.0）与**可用音质**。
+> Run **VoxCPM2 TTS** and a **4B-class Qwen LLM** on the same 8 GB GPU,
+> while keeping speech synthesis **real-time** (RTF ≤ 1.0) and the audio **usable**.
 >
-> 一个自包含、**可自动评分**的任务包（task package）：任务描述 + 可复现环境 + 实测基线 + 评分脚本。
+> A self-contained, **automatically-scorable** task package:
+> task statement + reproducible environment + measured baseline + scoring script.
 
-[![Task](https://img.shields.io/badge/task-open%20problem-orange)](#任务状态)
+[![Task](https://img.shields.io/badge/task-open%20problem-orange)](#task-status)
 [![Scoring](https://img.shields.io/badge/scoring-automatic-brightgreen)](score/)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue)](LICENSE)
 
 ---
 
-## 这是什么
+## What this is
 
-这是一个**单卡显存预算优化任务**，被完整地封装成可复现、可自动评分的形态：
+A **single-GPU memory-budget optimization task**, packaged so that it can be
+reproduced and scored without human judgment:
 
-- **任务**：在 8188 MiB 的 RTX 4060 Laptop 上，让常驻的 4B 级 LLM 与 VoxCPM2 TTS 同时可用。
-- **难点**：VoxCPM2 全精度（bf16）本身就要 ~4.5 GB，加上 LLM 的 ~3.3 GB 直接贴顶（95%），
-  并且生成速度劣化 **14 倍**（RTF 1.0 → 14.4）。显存和延迟**同时**被卡死。
-- **不是"跑个 demo"**：需要真正理解 VoxCPM2 的模块构成（LM 主干 / AudioVAE / 扩散解码器），
-  只量化该量化的部分，并给出**可验证**的音质代价。
+- **The task**: on an 8188 MiB RTX 4060 Laptop, make a resident 4B-class LLM
+  and VoxCPM2 TTS usable **at the same time**.
+- **Why it is hard**: VoxCPM2 in full precision (bf16) already needs ~4.5 GB;
+  the LLM adds ~3.3 GB. Together they hit 95 % of the card — and generation
+  slows down by **14×** (RTF 1.0 → 14.4). Memory and latency fail **simultaneously**.
+- **Not a "run the demo" task**: it requires understanding what VoxCPM2 is
+  actually made of (LM backbone / AudioVAE / diffusion decoder), quantizing only
+  what should be quantized, and putting a **verifiable** number on the audio cost.
 
-本仓库同时是**作者自己的实验记录**：基线已实测，一条可行的技术路线已验证到"差一点通过"，
-剩下的差距是**开放的**（见 [任务状态](#任务状态)）。
+This repository is also the **author's own experiment record**: the baseline is
+measured, one viable route has been validated up to "almost passing", and the
+remaining gap is **open** (see [Task status](#task-status)).
 
 ---
 
-## 任务状态
+## Task status
 
-**共存测量**（`nvidia-smi` 真实总占用，含 llama-server 独立进程）：
+**Coexistence measurements** (true total usage via `nvidia-smi`, including the
+separate `llama-server` process):
 
-| 配置 | 共存峰值显存 | 共存 RTF | 同 seed 音质分 | 结论 |
+| Configuration | Peak VRAM (coexist) | RTF (coexist) | Same-seed quality | Verdict |
 |---|---|---|---|---|
-| bf16 全精度（基线） | **7814 MiB**（95.4%） | **14.4** | — | ❌ 显存贴顶 + 慢 14 倍 |
-| nf4 仅量化 `base_lm` / `residual_lm` | VoxCPM2 稳态 **2.78 GB**（共存峰值未单独记录） | **1.04** | **0.59** | ❌ RTF 与音质双双未达标 |
+| bf16 full precision (baseline) | **7814 MiB** (95.4 %) | **14.4** | — | ❌ memory ceiling + 14× slower |
+| nf4 on `base_lm` / `residual_lm` only | VoxCPM2 steady **2.78 GB** (coexist peak not logged separately) | **1.04** | **0.59** | ❌ both RTF and quality below the gate |
 
-**单模型测量**（仅 VoxCPM2，无 LLM 共存；同 seed，10 步）：
+**Single-model measurements** (VoxCPM2 alone, no LLM; same seed, 10 steps):
 
-| 精度 | torch 峰值显存 | RTF |
+| Precision | Peak VRAM (torch) | RTF |
 |---|---|---|
 | bf16 | 5457 MiB | 1.60 |
-| nf4（仅 LM） | **3054 MiB** | 1.63 |
+| nf4 (LM only) | **3054 MiB** | 1.63 |
 
-> **关键发现**：只量化 LM 主干，能把 VoxCPM2 自身的峰值显存砍掉 **44%**（5457 → 3054 MiB），
-> 而速度代价几乎为零（RTF +1.8%）。**但音质有代价** —— 同 seed 对照显示
-> 高频能量上升 **17.6%**（量化噪声的典型特征），音质分 0.59，低于 0.7 门槛。
+> **Key finding**: quantizing only the LM backbone cuts VoxCPM2's own peak VRAM
+> by **44 %** (5457 → 3054 MiB) at almost no speed cost (RTF +1.8 %).
+> **But quality pays**: the same-seed comparison shows high-frequency energy up
+> **17.6 %** (the signature of quantization noise) and a quality score of 0.59,
+> below the 0.7 threshold.
 
-> **RTF** = 生成耗时 ÷ 音频时长。RTF ≤ 1.0 才算实时（生成比播放快）。
+> **RTF** = generation time ÷ audio duration. RTF ≤ 1.0 means real-time
+> (generation faster than playback).
 
-**结论：本题在 8 GB 上尚未被解决。** 已知路线能大幅压下显存、把 RTF 从 14.4 拉回 1.04，
-但 RTF 与音质**两条线都还差一点** —— 这正是留给解题者的空间。
+**Conclusion: this task is not solved on 8 GB.** The known route brings memory
+down substantially and pulls RTF from 14.4 back to 1.04, but **both** the RTF
+gate and the quality gate are narrowly missed — which is exactly the room left
+for a solver.
 
-> **为什么"没解决"反而是这个任务包的价值**：它证明了任务**确实可做**
-> （基线可复现运行、指标可自动测量、改进方向已被验证有效——显存 −44%），
-> 同时**明确存在提升空间**（两条门槛都逼近但未达）。一个已被解决的题目没有优化空间，
-> 一个跑不通的题目不可做；本仓库刻意停在这两者之间。
+> **Why "unsolved" is the value of this package**: it proves the task is
+> **actually doable** (the baseline runs reproducibly, the metrics are measured
+> automatically, and the improvement direction is verified — 44 % VRAM saved)
+> while **clearly leaving room for improvement** (both gates are close but unmet).
+> A solved problem has no optimization space; an unrunnable one is not a task.
+> This repository deliberately sits between the two.
 
-### 本任务包与"一套完整任务"的对应
+### How this maps to "a complete task"
 
-| 一套完整任务 | 本仓库对应物 |
+| A complete task needs | Where it lives here |
 |---|---|
-| 任务说明 | `README.md` + `docs/任务说明.md`（明确优化目标、允许修改范围、提交物） |
-| 运行环境 | `requirements.txt`、`Dockerfile`、`docker-compose.yml`（路径全部参数化） |
-| 评分脚本 | `score/score.py` + `score/rubric.json`（CPU-only，程序自动判定） |
-| 验证结果 | `results/`（实测基线 + 改进方案 + 同 seed 对照样本，见上表） |
+| Task statement | `README.md` + `docs/task-spec.md` (objective, what may be modified, what to submit) |
+| Runnable environment | `requirements.txt`, `Dockerfile`, `docker-compose.yml` (all paths parameterized) |
+| Scoring script | `score/score.py` + `score/rubric.json` (CPU-only, automatic verdict) |
+| Verified results | `results/` (measured baseline + improvement route + same-seed sample pairs) |
 
 ---
 
-## 环境
+## Environment
 
-| 项 | 值 |
+| Item | Value |
 |---|---|
-| GPU | NVIDIA RTX 4060 Laptop，**8188 MiB** |
+| GPU | NVIDIA RTX 4060 Laptop, **8188 MiB** |
 | Python | 3.12 |
 | PyTorch | 2.6.0+cu124 |
 | voxcpm | **2.0.3** |
 | bitsandbytes | 0.50.2 |
-| 模型 | VoxCPM2（约 4.7 GB，ModelScope `OpenBMB/VoxCPM2`） |
-| 常驻 LLM | 4B 级 Qwen，由 `llama-server` 提供（约 3.3 GB，端口 8899） |
+| Model | VoxCPM2 (~4.7 GB, ModelScope `OpenBMB/VoxCPM2`) |
+| Resident LLM | 4B-class Qwen served by `llama-server` (~3.3 GB, port 8899) |
 
 ---
 
-## 快速开始
+## Quickstart
 
 ```bash
-# 0) 依赖
+# 0) dependencies
 pip install -r requirements.txt
 
-# 1) 下载模型（约 4.7 GB）
+# 1) download the model (~4.7 GB)
 python bench/download_model.py
 
-# 2) 先起常驻 LLM（共存测量需要它已在 8899 监听）
-#    llama-server -m <你的4B模型.gguf> --port 8899 ...
-#    未启动时，共存类脚本会测到偏低的显存，结论无效
+# 2) start the resident LLM first (coexistence measurements need it listening on 8899)
+#    llama-server -m <your-4B-model.gguf> --port 8899 ...
+#    Without it, coexistence scripts measure too little VRAM and the result is invalid
 
-# 3) 单模型基线：RTF / 首包 / 显存 / 音色
+# 3) single-model baseline: RTF / first-chunk latency / VRAM / timbre
 python bench/t1_benchmark.py
 
-# 4) 共存（bf16，预期失败）
+# 4) coexistence, bf16 (expected to fail)
 python bench/t1d_coexist.py
 
-# 5) 量化后共存（已知路线，预期 RTF≈1.04）
+# 5) coexistence after quantization (the known route, expect RTF ≈ 1.04)
 python bench/t1f_quant_coexist.py
 
-# 6) ⭐ 同 seed A/B：让音质从「靠耳朵」变成「可自动评分」
+# 6) ⭐ same-seed A/B: turns audio quality from "by ear" into "automatically scorable"
 python bench/b09_seed_matched_quality.py
 
-# 7) 自动评分
+# 7) automatic scoring
 python score/score.py --results results/results.json --samples results/samples \
     --rubric score/rubric.json --out score/score.json
 ```
 
-> **路径参数化**：所有脚本的模型目录/输出目录/显存总量都可用环境变量覆盖，不写死本机路径：
-> `VOXCPM_MODEL_DIR`、`VOXCPM_OUT_DIR`、`GPU_TOTAL_MIB`。
+> **Paths are parameterized**: model dir, output dir and total VRAM can all be
+> overridden by environment variables — no machine-specific paths are hardcoded:
+> `VOXCPM_MODEL_DIR`, `VOXCPM_OUT_DIR`, `GPU_TOTAL_MIB`.
 
 ---
 
-## 仓库结构
+## Repository layout
 
 ```
 .
-├── bench/                      # 可运行的测量脚本（作者原始实验，已参数化）
-│   ├── download_model.py       #   拉取 VoxCPM2 权重
-│   ├── t1_benchmark.py         #   单模型四项实测：RTF / 首包 / 显存 / 音色
-│   ├── t1b_speed.py            #   只调已有参数压 RTF（步数 / cfg）
-│   ├── t1c_artifact.py         #   落盘可试听样本
-│   ├── t1d_coexist.py          #   共存显存账（bf16，失败基线）
-│   ├── t1e_quant.py            #   量化本身：显存 / RTF
-│   ├── t1f_quant_coexist.py    #   ⭐ 量化后共存（已知路线）
-│   ├── t1g_int8.py             #   int8 对照
-│   └── b09_seed_matched_quality.py  # ⭐ 同 seed A/B 生成器
+├── bench/                      # runnable measurement scripts (author's originals, parameterized)
+│   ├── download_model.py       #   fetch VoxCPM2 weights
+│   ├── t1_benchmark.py         #   single-model: RTF / first chunk / VRAM / timbre
+│   ├── t1b_speed.py            #   squeeze RTF using existing knobs only (steps / cfg)
+│   ├── t1c_artifact.py         #   write listenable samples to disk
+│   ├── t1d_coexist.py          #   coexistence memory accounting (bf16, failing baseline)
+│   ├── t1e_quant.py            #   quantization itself: VRAM / RTF
+│   ├── t1f_quant_coexist.py    #   ⭐ coexistence after quantization (known route)
+│   ├── t1g_int8.py             #   int8 control
+│   └── b09_seed_matched_quality.py  # ⭐ same-seed A/B generator
 ├── score/
-│   ├── score.py                # ⭐ 自动评分（CPU-only，无需 GPU）
-│   └── rubric.json             #   硬门槛 + 音质代理的权重与阈值
+│   ├── score.py                # ⭐ automatic scoring (CPU-only, no GPU needed)
+│   └── rubric.json             #   hard gates + quality-proxy weights and thresholds
 ├── results/
-│   ├── results.json            # 实测结果（提交者需替换 coexist 为自己的测量）
-│   └── samples/                # 试听样本（seedmatched/ 为同 seed 对照）
+│   ├── results.json            # measured results (submitters replace `coexist` with their own)
+│   └── samples/                # listenable samples (seedmatched/ holds the same-seed pair)
 ├── docs/
-│   └── 任务说明.md              # 任务包定义：输入 / 输出 / 判定 / 提示
+│   └── task-spec.md            # formal task definition
 └── requirements.txt
 ```
 
 ---
 
-## 评分方式
+## How scoring works
 
-`score/score.py` 分两层，**全部自动、无需 GPU、无需人工听**：
+`score/score.py` has two layers, **fully automatic — no GPU and no human listening**:
 
-**① 硬门槛**（来自 `results/results.json` 的实测数字）
+**1. Hard gates** (from the measured numbers in `results/results.json`)
 
-- 共存峰值显存 ≤ **8188 MiB**
-- 共存下 TTS 实时率 RTF ≤ **1.0**
+- peak coexistence VRAM ≤ **8188 MiB**
+- coexistence TTS real-time factor RTF ≤ **1.0**
 
-**② 音质代理**（来自 `results/samples/` 的 wav 对，相对 bf16 基线的漂移）
+**2. Audio-quality proxies** (from wav pairs in `results/samples/`, drift relative to the bf16 baseline)
 
-| 指标 | 捕捉什么 | 阈值 |
+| Metric | What it captures | Threshold |
 |---|---|---|
-| log-mel 谱距离（LSD, dB） | 音色 / 细节整体漂移 | ≤ 3.0 dB |
-| 高频能量占比相对变化 | 量化噪声 / 金属感 | ≤ 30% |
-| 谱通量 p95 相对变化 | 卡顿 / 爆音 | ≤ 50% |
+| log-mel spectral distance (LSD, dB) | overall timbre / detail drift | ≤ 3.0 dB |
+| high-frequency energy ratio change | quantization noise / metallic artifacts | ≤ 30 % |
+| spectral flux p95 change | stutter / clipping | ≤ 50 % |
 
-加权合成 0~1 的音质分，**≥ 0.7 通过**。
+These are weighted into a 0–1 quality score; **≥ 0.7 passes**.
 
-> ⚠️ **音质代理只在样本同 seed 时有效。** 不同 seed 的两次采样本来就有差异，
-> 谱距离会把"随机采样差异"误判成"量化损失"。
-> `b09_seed_matched_quality.py` 负责产出同 seed 对照；
-> 若样本 seed 不一致，评分脚本会照常输出数字但把该维度标为 **INVALID**，不参与结论。
+> ⚠️ **The quality proxies are only valid when the samples share a seed.**
+> Two samples drawn with different seeds differ on their own, and spectral
+> distance would then mistake *sampling* variance for *quantization* loss.
+> `b09_seed_matched_quality.py` produces the same-seed pair; if the seeds do not
+> match, the scorer still prints numbers but marks that dimension **INVALID** and
+> excludes it from the verdict.
 
-退出码：`0` 全通过 / `1` 有门槛未过 / `2` 输入缺失。
-
----
-
-## 已知可用的"杠杆"（供参考，非答案）
-
-- `inference_timesteps` 从 10 降到 5 / 3 —— 已实测可降 RTF，代价是音质
-- `cfg_value=1.0` 关闭 CFG —— 省一次前向
-- `int8` 替代 `nf4` —— 量化噪声更小，显存收益略低
-- 缩小量化范围（只动 `base_lm`，保留 `residual_lm` 为 bf16）
-- **CPU 侧先量化再上 GPU** —— 压低"量化瞬间"的显存峰值
-
-关键工程细节：**AudioVAE 与扩散解码器应保持 bf16**。它们参数量占比小，
-但对音质敏感；把它们一起量化会换来很小的显存收益和很大的音质代价。
+Exit codes: `0` all passed / `1` a gate failed / `2` missing input.
 
 ---
 
-## English Summary
+## Known levers (reference, not the answer)
 
-**VoxCPM2 · 8 GB VRAM Coexistence Quantization Benchmark** — a self-contained,
-automatically-scorable task package.
+- `inference_timesteps` from 10 down to 5 / 3 — measured to cut RTF, at a quality cost
+- `cfg_value=1.0` to disable CFG — saves one forward pass
+- `int8` instead of `nf4` — less quantization noise, smaller memory win
+- Narrow the quantization scope (only `base_lm`, keep `residual_lm` in bf16)
+- **Quantize on CPU before moving to GPU** — lowers the peak during the quantization instant
 
-The task: run VoxCPM2 (TTS) alongside a resident ~4B Qwen LLM on a single
-8 GB laptop GPU (RTX 4060, 8188 MiB), keeping TTS **real-time** (RTF ≤ 1.0)
-and the audio **usable**.
-
-Measured baseline: bf16 uses **7814 MiB (95.4%)** and degrades RTF to **14.4**.
-The known route (nf4 on `base_lm`/`residual_lm` only, keeping AudioVAE and the
-diffusion decoder in bf16) brings steady VRAM down to **2.78 GB** and RTF to
-**1.04** — close, but still above the gate. **The task remains open.**
-
-Scoring is fully automatic and CPU-only: hard gates on peak VRAM and RTF, plus
-audio-quality proxies (log-mel spectral distance, HF energy ratio, spectral flux
-p95) computed against a bf16 reference **generated with the same seed**, so
-quantization is the only variable.
+Key engineering detail: **keep AudioVAE and the diffusion decoder in bf16.**
+They are a small fraction of the parameters but are highly sensitive to
+quantization; quantizing them buys very little memory and costs a lot of quality.
 
 ---
 
-## 本仓库的原创范围（重要）
+## Provenance
 
-**本项目与 OpenBMB / VoxCPM 官方没有任何隶属关系**，不是 VoxCPM 的官方仓库。
+This repository was **packaged on 2026-10-11**, but the underlying work is older —
+the experiments were run on **2026-09-18**.
 
-作者**没有**参与 VoxCPM2 的模型设计、训练或代码开发，也**没有**向上游提交过 issue 或 PR。
-VoxCPM2 在本仓库中的角色是**研究对象**，不是作者的产出。
-
-本仓库的原创部分是：
-
-| 原创内容 | 说明 |
+| Date | What happened |
 |---|---|
-| 测量脚本（`bench/`） | 显存 / RTF / 首包 / 共存的实测方法，含"必须用 `nvidia-smi` 而非 `torch.cuda`"的口径 |
-| 量化策略 | 模块化取舍：只量化 `base_lm` / `residual_lm`，AudioVAE 与扩散解码器保持 bf16 |
-| 自动评分（`score/`） | CPU-only 音质代理指标 + 硬门槛，权重与阈值见 `rubric.json` |
-| 同 seed A/B 方法学 | 发现 2.0.3 无 `seed` 参数，改用全局 RNG 播种 + 关闭 `retry_badcase`，使量化成为唯一变量 |
-| 实测结论 | 显存 −44% 与 RTF +1.8% 的权衡，以及"两条门槛均未达"的诚实结论 |
+| 2026-09-18 | Upstream source cloned, environment built, VoxCPM2 weights downloaded, all `bench/` scripts written and run; raw audio outputs produced. Motivation: evaluating whether a high-quality real-time TTS model could coexist with a resident 4B LLM on an 8 GB laptop GPU, for a local assistant project. |
+| 2026-10-11 | Repackaged into this self-contained task package: paths parameterized, an automatic scoring layer added, results consolidated, and the same-seed A/B generator written. |
 
-一句话：**上游提供模型，本仓库提供对模型的研究。**
-这属于"论文复现 / Benchmark / 评测脚本"这一类工作 —— 不声称是原模型的作者，
-但评测与优化本身是作者自己的工作。
+What that means concretely:
+
+- The **measurement scripts and their outputs are the originals** from the
+  2026-09-18 session (with paths parameterized so they run off this machine).
+- The **scoring layer, the task framing, and this README were written on
+  2026-10-11.**
+- The repository's commit history starts on 2026-10-11 because that is when the
+  packaging happened — not because the experiments are that recent.
+
+Stated plainly: **the experiments are from September; the task package is from
+October.** Both statements are true and neither is inflated.
 
 ---
 
-## 许可与署名
+## Scope of original work (important)
 
-本仓库代码以 **Apache-2.0** 发布。它建立在以下上游工作之上，模型与权重版权归原作者：
+**This project has no affiliation with OpenBMB or the official VoxCPM project.**
+It is not an official VoxCPM repository.
 
-- **VoxCPM / VoxCPM2** — OpenBMB · <https://github.com/OpenBMB/VoxCPM> （Apache-2.0）
-- 权重：ModelScope `OpenBMB/VoxCPM2`
-- 量化：`bitsandbytes`（nf4 / int8）
+The author **did not** participate in the design, training or code development of
+VoxCPM2, and has **not** submitted any issue or pull request upstream.
+VoxCPM2's role here is **the object of study**, not the author's output.
 
-本仓库**不包含**任何模型权重，只包含测量与评分代码。
+What is original to this repository:
+
+| Original contribution | Description |
+|---|---|
+| Measurement scripts (`bench/`) | The methodology for measuring VRAM / RTF / first-chunk latency / coexistence, including the rule that VRAM must be read with `nvidia-smi`, not `torch.cuda` |
+| Quantization strategy | Modular trade-off: quantize only `base_lm` / `residual_lm`, keep AudioVAE and the diffusion decoder in bf16 |
+| Automatic scoring (`score/`) | CPU-only quality proxies plus hard gates, with weights and thresholds in `rubric.json` |
+| Same-seed A/B methodology | Found that version 2.0.3 exposes no `seed` parameter, so global RNG seeding plus disabling `retry_badcase` is used to make quantization the only variable |
+| Measured conclusions | The 44 % VRAM / +1.8 % RTF trade-off, and the honest finding that neither gate is met |
+
+In one line: **upstream provides the model; this repository provides the study
+of the model.** This is the same category of work as paper reproduction,
+benchmarking, or writing an evaluation harness — it does not claim to be the
+model author, but the evaluation itself is the author's own work.
+
+---
+
+## License and attribution
+
+The code in this repository is released under **Apache-2.0**. It builds on the
+following upstream work; model and weights remain the property of their authors:
+
+- **VoxCPM / VoxCPM2** — OpenBMB · <https://github.com/OpenBMB/VoxCPM> (Apache-2.0)
+- Weights: ModelScope `OpenBMB/VoxCPM2`
+- Quantization: `bitsandbytes` (nf4 / int8)
+
+This repository contains **no model weights** — only measurement and scoring code.
