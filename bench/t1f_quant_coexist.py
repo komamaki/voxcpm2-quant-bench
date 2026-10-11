@@ -9,7 +9,7 @@ T1e 结论：量化后 VoxCPM2 稳态仅 2.78 GB，RTF 仍 1.04 ✅
 
 前置：llama-server 已在 8899 运行。
 用法：
-    F:\\VoxCPM\\venv\\Scripts\\python.exe F:\\VoxCPM\\t1f_quant_coexist.py
+    python bench/t1f_quant_coexist.py
 """
 
 import os
@@ -28,7 +28,7 @@ import torch.nn as nn  # noqa: E402
 import soundfile as sf  # noqa: E402
 from voxcpm import VoxCPM  # noqa: E402
 
-MODEL_DIR = os.environ.get("VOXCPM_MODEL_DIR", r"F:\VoxCPM\models\VoxCPM2")
+MODEL_DIR = os.environ.get("VOXCPM_MODEL_DIR", "models/VoxCPM2")
 OUT_DIR = Path(os.environ.get("VOXCPM_OUT_DIR", "out"))
 TOTAL_MIB = int(os.environ.get("GPU_TOTAL_MIB", "8188"))
 PREFIXES = ("base_lm.", "residual_lm.")

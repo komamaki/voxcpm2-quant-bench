@@ -3,9 +3,9 @@
 对应 docs/开发/32 §5.0 的 T1，以及 docs/通用/24 §3.2 的四个未知数。
 
 用法：
-    F:\\VoxCPM\\venv\\Scripts\\python.exe F:\\VoxCPM\\t1_benchmark.py
+    python bench/t1_benchmark.py
 
-⚠️ 产物写到 F:\\VoxCPM\\out\\，音频交给耳朵判断（音色一致性没法自动打分）。
+⚠️ 产物写到 $VOXCPM_OUT_DIR/，音频交给耳朵判断（音色一致性没法自动打分）。
 """
 
 import os
@@ -24,7 +24,7 @@ import soundfile as sf  # noqa: E402
 import torch  # noqa: E402
 from voxcpm import VoxCPM  # noqa: E402
 
-MODEL_DIR = os.environ.get("VOXCPM_MODEL_DIR", r"F:\VoxCPM\models\VoxCPM2")
+MODEL_DIR = os.environ.get("VOXCPM_MODEL_DIR", "models/VoxCPM2")
 OUT_DIR = Path(os.environ.get("VOXCPM_OUT_DIR", "out"))
 
 # 中文测试句 —— 长度递增，用来看 RTF 是否随长度变化

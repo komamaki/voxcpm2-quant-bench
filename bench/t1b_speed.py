@@ -6,7 +6,7 @@
 ⭐ 同时测 Voice Design（文字生成音色，本项目核心需求 —— 不是克隆）
 
 用法：
-    F:\\VoxCPM\\venv\\Scripts\\python.exe F:\\VoxCPM\\t1b_speed.py
+    python bench/t1b_speed.py
 """
 
 import os
@@ -21,7 +21,7 @@ import soundfile as sf  # noqa: E402
 import torch  # noqa: E402
 from voxcpm import VoxCPM  # noqa: E402
 
-MODEL_DIR = os.environ.get("VOXCPM_MODEL_DIR", r"F:\VoxCPM\models\VoxCPM2")
+MODEL_DIR = os.environ.get("VOXCPM_MODEL_DIR", "models/VoxCPM2")
 OUT_DIR = Path(os.environ.get("VOXCPM_OUT_DIR", "out"))
 
 # ⭐ 本项目要的是「文字生成音色」（Voice Design），不是克隆

@@ -5,7 +5,7 @@
 
 前置：llama-server 已在 8899 端口运行（由外部命令启动）。
 用法：
-    F:\\VoxCPM\\venv\\Scripts\\python.exe F:\\VoxCPM\\t1d_coexist.py
+    python bench/t1d_coexist.py
 """
 
 import os
@@ -20,7 +20,7 @@ if hasattr(sys.stdout, "reconfigure"):
 import torch  # noqa: E402
 from voxcpm import VoxCPM  # noqa: E402
 
-MODEL_DIR = os.environ.get("VOXCPM_MODEL_DIR", r"F:\VoxCPM\models\VoxCPM2")
+MODEL_DIR = os.environ.get("VOXCPM_MODEL_DIR", "models/VoxCPM2")
 OUT_DIR = Path(os.environ.get("VOXCPM_OUT_DIR", "out"))
 TOTAL_MIB = int(os.environ.get("GPU_TOTAL_MIB", "8188"))
 

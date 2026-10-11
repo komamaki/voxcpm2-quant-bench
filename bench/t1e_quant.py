@@ -8,7 +8,7 @@
        ⚠️ AudioVAE / 扩散解码器保持 bf16（对精度敏感，动它们会毁音质）。
 
 用法：
-    F:\\VoxCPM\\venv\\Scripts\\python.exe F:\\VoxCPM\\t1e_quant.py
+    python bench/t1e_quant.py
 """
 
 import os
@@ -26,7 +26,7 @@ import torch.nn as nn  # noqa: E402
 import soundfile as sf  # noqa: E402
 from voxcpm import VoxCPM  # noqa: E402
 
-MODEL_DIR = os.environ.get("VOXCPM_MODEL_DIR", r"F:\VoxCPM\models\VoxCPM2")
+MODEL_DIR = os.environ.get("VOXCPM_MODEL_DIR", "models/VoxCPM2")
 OUT_DIR = Path(os.environ.get("VOXCPM_OUT_DIR", "out"))
 TEXT = "(年轻男孩，清爽开朗)我在，你说吧，有什么事？"
 

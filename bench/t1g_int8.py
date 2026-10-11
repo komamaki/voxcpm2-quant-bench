@@ -9,7 +9,7 @@
   C. bf16 基线（对照，音质参照）
 
 用法：
-    F:\\VoxCPM\\venv\\Scripts\\python.exe F:\\VoxCPM\\t1g_int8.py
+    python bench/t1g_int8.py
 """
 
 import os
@@ -27,7 +27,7 @@ import torch.nn as nn  # noqa: E402
 import soundfile as sf  # noqa: E402
 from voxcpm import VoxCPM  # noqa: E402
 
-MODEL_DIR = os.environ.get("VOXCPM_MODEL_DIR", r"F:\VoxCPM\models\VoxCPM2")
+MODEL_DIR = os.environ.get("VOXCPM_MODEL_DIR", "models/VoxCPM2")
 OUT_DIR = Path(os.environ.get("VOXCPM_OUT_DIR", "out"))
 TEXT = "(年轻男孩，清爽开朗)我在，你说吧，有什么事？"
 
@@ -112,7 +112,7 @@ def main() -> None:
     # C：bf16 基线
     run_case("C_bf16", None, ())
 
-    print("\n⭐ 音频都在 F:\\VoxCPM\\out\\q_*.wav —— 请重点对比音质")
+    print("\n⭐ 音频都在 $VOXCPM_OUT_DIR/q_*.wav —— 请重点对比音质")
     print("   A_int8 / B_nf4_baseonly / C_bf16（基线参照）")
 
 

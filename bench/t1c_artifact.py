@@ -4,7 +4,7 @@
 本次要分辨：① 偶发？ ② retry_badcase 造成？ ③ 长句造成？
 
 用法：
-    F:\\VoxCPM\\venv\\Scripts\\python.exe F:\\VoxCPM\\t1c_artifact.py
+    python bench/t1c_artifact.py
 """
 
 import os
@@ -18,7 +18,7 @@ if hasattr(sys.stdout, "reconfigure"):
 import torch  # noqa: E402
 from voxcpm import VoxCPM  # noqa: E402
 
-MODEL_DIR = os.environ.get("VOXCPM_MODEL_DIR", r"F:\VoxCPM\models\VoxCPM2")
+MODEL_DIR = os.environ.get("VOXCPM_MODEL_DIR", "models/VoxCPM2")
 OUT_DIR = Path(os.environ.get("VOXCPM_OUT_DIR", "out"))
 
 DESC = "(年轻男孩，清爽开朗，语速自然)"

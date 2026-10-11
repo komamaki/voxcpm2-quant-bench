@@ -24,9 +24,10 @@ T1/T1e/T1g 的样本都是**不固定 seed** 生成的 —— 同一句话两次
 4. 落盘 + 写 run_meta.json（seed / 参数 / 版本 / 显存）
 
 用法：
-    set VOXCPM_MODEL_DIR=F:\\VoxCPM\\models\\VoxCPM2
-    set VOXCPM_OUT_DIR=F:\\voxcpm2-quant-bench\\results\\samples\\seedmatched
-    F:\\VoxCPM\\venv\\Scripts\\python.exe bench\\b09_seed_matched_quality.py
+    # 可选：覆盖默认路径（默认 models/VoxCPM2 与 results/samples/seedmatched）
+    set VOXCPM_MODEL_DIR=D:\\models\\VoxCPM2
+    set VOXCPM_OUT_DIR=results\\samples\\seedmatched
+    python bench/b09_seed_matched_quality.py
 """
 
 import gc
@@ -46,7 +47,7 @@ import torch  # noqa: E402
 import torch.nn as nn  # noqa: E402
 from voxcpm import VoxCPM  # noqa: E402
 
-MODEL_DIR = os.environ.get("VOXCPM_MODEL_DIR", r"F:\VoxCPM\models\VoxCPM2")
+MODEL_DIR = os.environ.get("VOXCPM_MODEL_DIR", "models/VoxCPM2")
 OUT_DIR = Path(os.environ.get("VOXCPM_OUT_DIR", "results/samples/seedmatched"))
 
 SEED = int(os.environ.get("BENCH_SEED", "20261011"))
