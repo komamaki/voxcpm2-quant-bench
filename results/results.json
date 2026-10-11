@@ -1,0 +1,65 @@
+{
+  "schema": "voxcpm2-quant-bench/results/v1",
+  "_note": "这是作者的【参考结果】，不是提交模板。提交者请把 coexist 换成自己在 8GB 卡上、LLM 已常驻时的实测值（必须用 nvidia-smi 读真实总占用）。",
+  "coexist": {
+    "id": "bf16_coexist_baseline",
+    "peak_vram_mib": 7814,
+    "rtf": 14.4,
+    "verdict": "FAIL",
+    "measured_via": "nvidia-smi --query-gpu=memory.used（含 llama-server 独立进程）",
+    "llm": "4B 级 Qwen，llama-server 常驻 :8899，约 3.3 GB",
+    "voxcpm_dtype": "bfloat16",
+    "gpu": "NVIDIA GeForce RTX 4060 Laptop GPU (8188 MiB)",
+    "note": "全精度基线：显存占 95.4%，RTF 从 1.0 劣化到 14.4 —— 显存与延迟同时被卡死"
+  },
+  "known_solution_attempt": {
+    "id": "nf4_lm_only",
+    "quantization": "nf4(base_lm,residual_lm)，AudioVAE 与扩散解码器保持 bf16",
+    "voxcpm_steady_gb": 2.78,
+    "coexist_rtf": 1.04,
+    "coexist_peak_vram_mib": null,
+    "verdict": "接近通过",
+    "note": "共存峰值未单独记录（仅记录 VoxCPM2 稳态 2.78 GB 与共存 RTF 1.04）。RTF 仍略超 1.0，故未通过。"
+  },
+  "quality_pairs": [
+    {
+      "reference": "seedmatched/bf16.wav",
+      "candidate": "seedmatched/nf4_lm.wav",
+      "seed_reference": 20261011,
+      "seed_candidate": 20261011,
+      "quantization": "nf4(base_lm,residual_lm)",
+      "quantized_layers": 252,
+      "note": "同 seed 对照（global RNG reset），唯一变量是量化"
+    }
+  ],
+  "measured_runs": [
+    {
+      "id": "single_bf16",
+      "scope": "仅 VoxCPM2，无 LLM 共存",
+      "dtype": "bfloat16",
+      "inference_timesteps": 10,
+      "cfg_value": 2.0,
+      "seed": 20261011,
+      "audio_seconds": 2.4,
+      "cost_seconds": 3.8507,
+      "rtf": 1.6045,
+      "torch_allocated_mib": 5246.7,
+      "torch_peak_allocated_mib": 5457.0
+    },
+    {
+      "id": "single_nf4_lm",
+      "scope": "仅 VoxCPM2，无 LLM 共存",
+      "dtype": "nf4(base_lm,residual_lm) + bf16(其余)",
+      "inference_timesteps": 10,
+      "cfg_value": 2.0,
+      "seed": 20261011,
+      "quantized_layers": 252,
+      "audio_seconds": 2.4,
+      "cost_seconds": 3.9193,
+      "rtf": 1.633,
+      "torch_allocated_mib": 2843.9,
+      "torch_peak_allocated_mib": 3054.2
+    }
+  ],
+  "_single_model_finding": "nf4 只量化 base_lm/residual_lm：VoxCPM2 自身峰值 5457 → 3054 MiB（−44%），RTF 仅 1.60 → 1.63（+1.8%）—— 显存收益巨大而速度代价几乎为零。"
+}

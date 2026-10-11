@@ -1,0 +1,32 @@
+VoxCPM2 · 8GB 共存量化基准
+Copyright 2026 (this repository's measurement & scoring code)
+
+本仓库以 Apache License 2.0 发布。
+
+它建立在以下上游工作之上 —— 模型、权重与推理框架的版权归原作者所有：
+
+  VoxCPM / VoxCPM2
+    OpenBMB
+    https://github.com/OpenBMB/VoxCPM
+    License: Apache-2.0
+    权重来源: ModelScope  OpenBMB/VoxCPM2
+
+  bitsandbytes
+    https://github.com/bitsandbytes-foundation/bitsandbytes
+    License: MIT
+    用途: nf4 / int8 量化原语
+
+  PyTorch
+    https://pytorch.org/
+    License: BSD-3-Clause
+
+  llama.cpp / llama-server
+    https://github.com/ggml-org/llama.cpp
+    License: MIT
+    用途: 常驻 LLM 推理服务（共存测量中的第二个显存占用方）
+
+  Qwen 系列模型
+    Alibaba Cloud
+    用途: 共存测量中的 4B 级 LLM（权重不入库）
+
+本仓库**不包含**任何模型权重。

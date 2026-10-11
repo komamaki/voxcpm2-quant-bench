@@ -1,0 +1,59 @@
+{
+  "schema": "voxcpm2-quant-bench/run_meta/v1",
+  "purpose": "同 seed 对照 —— 供 score/score.py 计算音质代理",
+  "seed_matched": true,
+  "seeding": {
+    "method": "global_rng_reset",
+    "detail": "torch.manual_seed(N) + torch.cuda.manual_seed_all(N) before each generate",
+    "reason": "installed voxcpm==2.0.3 的 generate() 无 seed 参数",
+    "retry_badcase": false
+  },
+  "environment": {
+    "python": "3.12.14",
+    "platform": "Windows-11-10.0.26200-SP0",
+    "torch": "2.6.0+cu124",
+    "gpu": "NVIDIA GeForce RTX 4060 Laptop GPU",
+    "model_dir": "F:/VoxCPM/models/VoxCPM2"
+  },
+  "runs": [
+    {
+      "id": "bf16",
+      "quantization": "none",
+      "file": "bf16.wav",
+      "audio_seconds": 2.4,
+      "cost_seconds": 3.8507,
+      "rtf": 1.6045,
+      "sample_rate": 48000,
+      "seed": 20261011,
+      "cfg_value": 2.0,
+      "inference_timesteps": 10,
+      "vram": {
+        "cuda": true,
+        "device": "NVIDIA GeForce RTX 4060 Laptop GPU",
+        "total_mib": 8187.5,
+        "allocated_mib": 5246.7,
+        "peak_allocated_mib": 5457.0
+      }
+    },
+    {
+      "id": "nf4_lm",
+      "quantization": "nf4(base_lm,residual_lm)",
+      "quantized_layers": 252,
+      "file": "nf4_lm.wav",
+      "audio_seconds": 2.4,
+      "cost_seconds": 3.9193,
+      "rtf": 1.633,
+      "sample_rate": 48000,
+      "seed": 20261011,
+      "cfg_value": 2.0,
+      "inference_timesteps": 10,
+      "vram": {
+        "cuda": true,
+        "device": "NVIDIA GeForce RTX 4060 Laptop GPU",
+        "total_mib": 8187.5,
+        "allocated_mib": 2843.9,
+        "peak_allocated_mib": 3054.2
+      }
+    }
+  ]
+}

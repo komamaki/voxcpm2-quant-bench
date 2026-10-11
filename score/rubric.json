@@ -1,0 +1,47 @@
+{
+  "schema": "voxcpm2-quant-bench/rubric/v1",
+  "task": "在 8GB 显存上让 VoxCPM2 与常驻的 4B 级 Qwen（llama-server）共存，且 TTS 保持实时与音质",
+  "objective": "在满足全部硬门槛的前提下，最大化共存后的显存余量（MiB）",
+  "hard_gates": {
+    "peak_vram_mib_max": 8188,
+    "rtf_max": 1.0,
+    "_comment_vram": "RTX 4060 Laptop 标称 8188 MiB；含 llama-server 与 TTS 全流程峰值",
+    "_comment_rtf": "RTF = 生成耗时 / 音频时长；<= 1.0 才算实时"
+  },
+  "quality": {
+    "pass_score": 0.7,
+    "weights": {
+      "lsd": 0.5,
+      "hf": 0.25,
+      "flux": 0.25,
+      "duration": 0.0
+    },
+    "lsd_db_max": 3.0,
+    "hf_ratio_rel_max": 0.3,
+    "flux_p95_rel_max": 0.5,
+    "duration_drift_rel_max": 0.1,
+    "_comment": "音质为代理指标，非人耳 MOS；仅在候选与基线同 seed 时有效"
+  },
+  "baseline": {
+    "id": "bf16_coexist",
+    "peak_vram_mib": 7814,
+    "rtf": 14.4,
+    "verdict": "FAIL",
+    "note": "bf16 全精度共存：显存 95.4%，RTF 劣化 14 倍"
+  },
+  "known_solution": {
+    "id": "nf4_lm_only",
+    "peak_vram_gb_steady": 2.78,
+    "rtf": 1.04,
+    "quality_score_measured": 0.59,
+    "verdict": "未通过（RTF 与音质双双未达标）",
+    "note": "仅量化 base_lm/residual_lm 为 nf4，AudioVAE 与扩散解码器保持 bf16。共存 RTF 1.04 > 1.0；同 seed 音质分 0.59 < 0.7（LSD 1.48dB、高频能量 +17.6%）。"
+  },
+  "remaining_levers": [
+    "inference_timesteps 从 10 降到 5 / 3（已实测可降 RTF，代价是音质）",
+    "cfg_value=1.0 关闭 CFG，省一次前向",
+    "int8 替代 nf4（量化噪声更小，显存收益略低）",
+    "缩小量化范围（只动 base_lm，保留 residual_lm 为 bf16）",
+    "CPU 侧先量化再上 GPU，压低量化瞬间的显存峰值"
+  ]
+}

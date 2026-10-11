@@ -1,0 +1,20 @@
+# 本仓库在以下版本上**实测通过**（Windows 11 / RTX 4060 Laptop 8188 MiB）：
+#   python       3.12.14
+#   torch        2.6.0+cu124
+#   voxcpm       2.0.3
+#   bitsandbytes 0.50.2
+#   soundfile    0.14.0
+#   numpy        2.5.3
+#
+# ⚠️ CUDA 版 torch 需按官方指引单独装（cu124 轮子）：
+#   pip install torch==2.6.0 --index-url https://download.pytorch.org/whl/cu124
+#
+# 评分脚本 score/score.py 是 CPU-only，只依赖 numpy + soundfile。
+
+# ── 评分（CPU-only 也能跑）──
+numpy>=1.26
+soundfile>=0.14.0
+
+# ── 测量（需要 GPU）──
+voxcpm>=2.0.3
+bitsandbytes>=0.50.2

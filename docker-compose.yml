@@ -1,0 +1,34 @@
+# VoxCPM2 · 8GB 共存量化基准 —— 一键复现
+#
+#   docker compose run --rm bench python3 bench/t1f_quant_coexist.py
+#   docker compose run --rm bench python3 bench/b09_seed_matched_quality.py
+#   docker compose run --rm bench python3 score/score.py
+#
+# 模型权重放宿主机，通过 VOXCPM_MODEL_HOST 指向：
+#   VOXCPM_MODEL_HOST=/data/models/VoxCPM2 docker compose run --rm bench ...
+#
+# ⚠️ 常驻 LLM（llama-server :8899）需**另行启动**。共存类脚本
+#    （t1d / t1f / t1g）在它未运行时测到的显存会偏低，结论无效。
+#    若也想容器化，可加一个 llama.cpp 服务并把 network_mode 设为 host。
+
+services:
+  bench:
+    build: .
+    image: voxcpm2-quant-bench:local
+    working_dir: /work
+    environment:
+      VOXCPM_MODEL_DIR: /models/VoxCPM2
+      VOXCPM_OUT_DIR: /work/results/samples
+      GPU_TOTAL_MIB: "8188"
+    volumes:
+      # 整个仓库挂进来 —— 测量结果直接落回宿主机
+      - ./:/work
+      # 模型权重只读挂载（约 4.7 GB，不进镜像）
+      - ${VOXCPM_MODEL_HOST:-./models/VoxCPM2}:/models/VoxCPM2:ro
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]

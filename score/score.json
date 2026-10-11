@@ -1,0 +1,46 @@
+{
+  "schema": "voxcpm2-quant-bench/score/v1",
+  "task": "在 8GB 显存上让 VoxCPM2 与常驻的 4B 级 Qwen（llama-server）共存，且 TTS 保持实时与音质",
+  "objective": "在满足全部硬门槛的前提下，最大化共存后的显存余量（MiB）",
+  "hard_gates": [
+    {
+      "metric": "peak_vram_mib",
+      "value": 7814,
+      "limit": 8188,
+      "pass": true,
+      "headroom_mib": 374
+    },
+    {
+      "metric": "rtf",
+      "value": 14.4,
+      "limit": 1.0,
+      "pass": false
+    }
+  ],
+  "hard_gates_pass": false,
+  "quality_comparisons": [
+    {
+      "reference": "bf16.wav",
+      "candidate": "nf4_lm.wav",
+      "sample_rate": 48000,
+      "duration_ref_s": 2.4,
+      "duration_cand_s": 2.4,
+      "logmel_lsd_db": 1.4835,
+      "hf_ratio_ref": 0.002049,
+      "hf_ratio_cand": 0.001689,
+      "hf_ratio_rel": 0.1759,
+      "flux_p95_ref": 0.431261,
+      "flux_p95_cand": 0.417099,
+      "flux_p95_rel": 0.0328,
+      "duration_drift_rel": 0.0,
+      "quality_score": 0.5898,
+      "pass": false,
+      "seed_matched": true,
+      "quantization": "nf4(base_lm,residual_lm)"
+    }
+  ],
+  "quality_valid": true,
+  "mean_quality_score": 0.5898,
+  "quality_pass": false,
+  "verdict": "FAIL"
+}

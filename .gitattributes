@@ -1,0 +1,10 @@
+# 统一换行符，避免 Windows/Linux 之间的 CRLF 抖动
+* text=auto eol=lf
+
+# 二进制资源不参与文本处理
+*.wav binary
+*.png binary
+*.jpg binary
+*.pth binary
+*.safetensors binary
+*.gguf binary
